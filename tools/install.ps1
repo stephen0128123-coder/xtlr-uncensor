@@ -1,13 +1,5 @@
-﻿# ===== 星塔旅人 反和谐包 v1.1 · 安装 =====
-# 与 v1.0 的差别：如果本地没有资源（data/full），会自动从 GitHub Release 下载。
-# 安装核心逻辑（备份复用 / 台账合并 / md5 校验）与 v1.0 完全一致。
-
-param(
-  [string]$ManifestOverride = '',
-  [string]$GameDirOverride  = '',
-  [switch]$NoDownload       # 跳过下载，用已有 data/
-)
-
+﻿# ===== 星塔旅人 反和谐包 · 安装 =====
+param([string]$ManifestOverride = '', [string]$GameDirOverride = '')
 . (Join-Path $PSScriptRoot 'common.ps1')
 
 try { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8 } catch {}
@@ -17,46 +9,21 @@ $dataDir = Join-Path $root 'data'
 $fullDir = Join-Path $dataDir 'full'
 $mani    = if ($ManifestOverride) { $ManifestOverride } else { Join-Path $dataDir 'manifest.tsv' }
 
-Write-Title '星塔旅人（国服）· 反和谐包 v1.1 安装程序'
+Write-Title '星塔旅人（国服）· 反和谐包 安装程序'
 
+if (-not (Test-Path -LiteralPath $mani)) { Write-Err2 "缺少清单文件: $mani"; exit 1 }
 if (-not (Assert-GameNotRunning)) { exit 1 }
 
-# ---------- 0. 确保资源就绪 ----------
-$needFetch = $false
-if (-not (Test-Path -LiteralPath $fullDir)) {
-  $needFetch = $true
-} else {
-  $cnt = @(Get-ChildItem -LiteralPath $fullDir -Recurse -File -ErrorAction SilentlyContinue).Count
-  if ($cnt -eq 0) { $needFetch = $true }
-}
-
-if ($needFetch -and -not $NoDownload) {
-  Write-Title '本地无资源，开始从 GitHub 下载'
-  $updater = Join-Path $PSScriptRoot 'updater.ps1'
-  if (-not (Test-Path -LiteralPath $updater)) { Write-Err2 "缺少下载模块: $updater"; exit 1 }
-
-  & powershell -NoProfile -ExecutionPolicy Bypass -File $updater
-  if ($LASTEXITCODE -ne 0) {
-    Write-Err2 '资源下载失败，安装中止。'
-    Write-Host '  可手动下载 Release 里的文件放进 data/full 后加 -NoDownload 重试。' -ForegroundColor Yellow
-    exit 1
-  }
-} elseif ($needFetch -and $NoDownload) {
-  Write-Err2 '本地无资源且指定了 -NoDownload，安装中止。'
-  exit 1
-} else {
-  Write-Ok '本地资源已就绪，跳过下载。'
-}
-
-# ---------- 1. 定位游戏 ----------
-if (-not (Test-Path -LiteralPath $mani)) { Write-Err2 "缺少清单文件: $mani"; exit 1 }
 $game = if ($GameDirOverride) { $GameDirOverride } else { Get-GameDirInteractive }
 if (-not (Test-GameDir $game)) { Write-Err2 '未能确定游戏目录，已中止。'; exit 1 }
 
 $rows = Read-Manifest $mani
 Write-Step "清单包含 $($rows.Count) 个文件"
 
-# ---- 备份目录（复用最早的一份）----
+# ---- 备份目录 ----
+# 关键：必须复用「最早」的那份备份，因为只有它保存的是原始国服版。
+# 如果每次都新建备份，第二次安装会把「已改过的文件」当成原始版备份，
+# 导致 uninstall 无法真正退回国服原版。
 $existing = @()
 $existing += @(Get-ChildItem -LiteralPath $game -Directory -Filter '_uncensor_backup_*' -ErrorAction SilentlyContinue)
 $existing += @(Get-ChildItem -LiteralPath $root -Directory -Filter '_uncensor_backup_*' -ErrorAction SilentlyContinue)
@@ -102,6 +69,7 @@ foreach ($r in $rows) {
         Copy-Item -LiteralPath $dst -Destination $bf -Force
         $bakLines += ($L + "`t" + $r.pkg)
       }
+      # 原始 md5 与官方清单不符时仅提示
       if ($r.pre -and (Get-Md5 $dst) -ne $r.pre) { $warnPre++ }
     }
 
@@ -111,7 +79,7 @@ foreach ($r in $rows) {
   }
 }
 
-# 台账：合并写回（不覆盖旧台账）
+# 台账：与已有台账合并（重复安装时本次可能无新增备份，不能覆盖旧台账）
 $bmfPath = Join-Path $bak 'backup_manifest.tsv'
 $oldLines = @()
 if (Test-Path -LiteralPath $bmfPath) {
@@ -121,6 +89,7 @@ if (Test-Path -LiteralPath $bmfPath) {
 $allLines = @($oldLines + $bakLines) | Select-Object -Unique
 [System.IO.File]::WriteAllLines($bmfPath, $allLines, (New-Object System.Text.UTF8Encoding($false)))
 [System.IO.File]::WriteAllText((Join-Path $bak 'game_dir.txt'), $game, (New-Object System.Text.UTF8Encoding($false)))
+# 记录游戏目录，供 uninstall 精确定位（无需用户再选一次）
 try { [System.IO.File]::WriteAllText((Join-Path $root '_last_game_dir.txt'), $game, (New-Object System.Text.UTF8Encoding($false))) } catch {}
 
 Write-Title '安装完成'
