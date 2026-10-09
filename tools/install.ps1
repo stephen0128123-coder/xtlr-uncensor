@@ -1,4 +1,4 @@
-﻿# ===== 星塔旅人 反和谐包 · 安装 =====
+﻿# ===== 星塔旅人 模组 · 安装 =====
 param([string]$ManifestOverride = '', [string]$GameDirOverride = '')
 . (Join-Path $PSScriptRoot 'common.ps1')
 
@@ -9,7 +9,7 @@ $dataDir = Join-Path $root 'data'
 $fullDir = Join-Path $dataDir 'full'
 $mani    = if ($ManifestOverride) { $ManifestOverride } else { Join-Path $dataDir 'manifest.tsv' }
 
-Write-Title '星塔旅人（国服）· 反和谐包 安装程序'
+Write-Title '星塔旅人（国服）· 模组 安装程序'
 
 if (-not (Test-Path -LiteralPath $mani)) { Write-Err2 "缺少清单文件: $mani"; exit 1 }
 if (-not (Assert-GameNotRunning)) { exit 1 }
