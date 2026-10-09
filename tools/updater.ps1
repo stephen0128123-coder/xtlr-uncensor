@@ -1,4 +1,4 @@
-﻿# ===== 星塔旅人 反和谐包 v2.0 · 资源下载器 =====
+﻿# ===== 星塔旅人 反和谐包 v1.1 · 资源下载器 =====
 # 职责：从 GitHub Release 拉取 manifest + 资源包，校验后解压到缓存目录。
 # 设计要点：
 #   1) 全程只依赖两个已验证国内直连可达的域名：
@@ -134,7 +134,7 @@ function Invoke-DownloadWithMirrors {
 }
 
 # ---------- 主流程 ----------
-Write-Title '星塔旅人（国服）· 反和谐包 v2.0 —— 资源获取'
+Write-Title '星塔旅人（国服）· 反和谐包 v1.1 —— 资源获取'
 
 $cfg = Read-Config
 $cache = if ($WorkDir) { $WorkDir } else { [System.Environment]::ExpandEnvironmentVariables($cfg.cache_dir) }
