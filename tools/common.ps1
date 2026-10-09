@@ -1,4 +1,4 @@
-﻿# ===== 星塔旅人 反和谐包 v1.1 · 公共模块 =====
+﻿# ===== 星塔旅人 反和谐包 · 公共模块 =====
 $ErrorActionPreference = 'Stop'
 
 function Write-Title([string]$t) { Write-Host ''; Write-Host ('=' * 60) -ForegroundColor DarkCyan; Write-Host "  $t" -ForegroundColor Cyan; Write-Host ('=' * 60) -ForegroundColor DarkCyan }
