@@ -1,4 +1,4 @@
-﻿# ===== 星塔旅人 反和谐包 · 一键退回国服原版 =====
+﻿# ===== 星塔旅人 模组 · 一键恢复国服原版 =====
 param([string]$BackupDir = '', [string]$GameDirOverride = '')
 . (Join-Path $PSScriptRoot 'common.ps1')
 
