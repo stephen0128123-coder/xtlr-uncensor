@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-星塔旅人反和谐包 v2.0 · 发布打包工具（部署端使用）
+星塔旅人反和谐包 v1.1 · 发布打包工具（部署端使用）
 
 作用：把 v1.0 的 data/full/ 资源包，打包成适合 GitHub Release 的形态：
   1. 可选切分（单个 Release asset 上限 2GB，超了必须切）
@@ -11,9 +11,9 @@
 
 用法：
   python build_release.py --src "D:\\...\\星塔旅人_反和谐包_v1.0\\data" ^
-                          --out "D:\\...\\星塔旅人_GH分发_v2.0\\dist" ^
+                          --out "D:\\...\\星塔旅人_GH分发_v1.1\\dist" ^
                           --repo "yourname/yourrepo" ^
-                          --version 2.0.0 --game-version 1.4.2 ^
+                          --version 1.1 --game-version 1.4.2 ^
                           --split-mb 1800
 """
 import argparse
@@ -98,11 +98,11 @@ def split_file(src, out_dir, base_name, split_bytes):
 
 
 def main():
-    ap = argparse.ArgumentParser(description='星塔旅人反和谐包 v2.0 发布打包')
+    ap = argparse.ArgumentParser(description='星塔旅人反和谐包 v1.1 发布打包')
     ap.add_argument('--src', required=True, help='v1.0 的 data 目录（含 full/ 与 manifest.tsv）')
     ap.add_argument('--out', required=True, help='输出目录（dist）')
     ap.add_argument('--repo', required=True, help='GitHub 仓库，如 yourname/xtlr-uncensor')
-    ap.add_argument('--version', default='2.0.0', help='包版本号（不带 v）')
+    ap.add_argument('--version', default='1.1', help='包版本号（不带 v）')
     ap.add_argument('--game-version', default='1.4.2', help='对应游戏版本')
     ap.add_argument('--split-mb', type=int, default=1800, help='单个 asset 切分上限(MB)，默认 1800')
     ap.add_argument('--notes', default='', help='Release 说明')
@@ -126,7 +126,7 @@ def main():
     os.makedirs(stage, exist_ok=True)
 
     print('=' * 60)
-    print('  星塔旅人反和谐包 v2.0 · 发布打包')
+    print('  星塔旅人反和谐包 v1.1 · 发布打包')
     print('=' * 60)
 
     # ① 统计源文件
