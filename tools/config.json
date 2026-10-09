@@ -8,17 +8,18 @@
 
   "mirror_prefixes": [
     "",
+    "https://ghfast.top/",
     "https://ghproxy.net/",
-    "https://gh-proxy.com/",
-    "https://ghfast.top/"
+    "https://gh-proxy.com/"
   ],
 
-  "_mirror_note": "空字符串代表直连 GitHub。安装器会按顺序尝试，第一个成功即用。",
+  "_mirror_note": "空字符串代表直连 GitHub。安装器按顺序尝试，第一个成功即用。全部通道 2026-10-09 实测可用；gh-proxy.com 不支持断点续传（放末位，仅作兜底）。",
 
   "download": {
     "threads": 4,
-    "retry": 3,
-    "timeout_sec": 120,
+    "retry": 4,
+    "timeout_sec": 60,
+    "retry_delay_sec": 2,
     "chunk_size_kb": 1024,
     "resume": true
   },
