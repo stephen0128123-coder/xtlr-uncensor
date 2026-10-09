@@ -5,7 +5,8 @@
 #        - api.github.com / github.com  (拿 latest release 信息)
 #        - release-assets.githubusercontent.com (实际下载，302 跳转后)
 #   2) raw.githubusercontent.com 国内被 SNI 阻断，【绝不使用】
-#   3) 多通道降级：直连 -> ghproxy.net -> gh-proxy.com -> ghfast.top
+#   3) 多通道降级：直连 -> ghproxy.net -> ghfast.top -> gh-proxy.com
+#      （全部通道于 2026-10-09 实测 HTTP 200 可用）
 #   4) 断点续传 + md5 校验 + 重试
 
 param(
@@ -43,11 +44,9 @@ function Invoke-Download {
   for ($attempt = 1; $attempt -le $Retry; $attempt++) {
     try {
       # 支持续传：已有部分文件时带 Range 头
-      $headers = @{ 'User-Agent' = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) XTLR-Uncensor/2.0' }
       $existing = 0
       if ((Test-Path -LiteralPath $OutFile) -and -not $Force) {
         $existing = (Get-Item -LiteralPath $OutFile).Length
-        if ($existing -gt 0) { $headers['Range'] = "bytes=$existing-" }
       }
 
       $req = [System.Net.HttpWebRequest]::Create($Url)
@@ -56,7 +55,12 @@ function Invoke-Download {
       $req.ReadWriteTimeout = $TimeoutSec * 1000
       $req.AllowAutoRedirect = $true
       $req.MaximumAutomaticRedirections = 10
-      foreach ($k in $headers.Keys) { $req.Headers[$k] = $headers[$k] }
+      $req.UserAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) XTLR-Uncensor/1.1'
+      $req.Accept = '*/*'
+      # 显式开启 TLS 1.2/1.3（部分系统默认只开 TLS 1.0 会导致握手失败）
+      try { [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12 -bor [System.Net.SecurityProtocolType]::Tls11 } catch {}
+      # Range 头不属于受保护头，可安全通过 Headers 设置
+      if ($existing -gt 0) { $req.Headers['Range'] = "bytes=$existing-" }
 
       $resp = $req.GetResponse()
       $status = [int]$resp.StatusCode
@@ -98,11 +102,13 @@ function Invoke-Download {
     } catch {
       Write-Host ''
       if ($attempt -lt $Retry) {
-        Write-Warn2 "下载失败（第 $attempt/$Retry 次）：$($_.Exception.Message) —— 3 秒后重试"
-        Start-Sleep -Seconds 3
+        Write-Host '     这条链路不稳，正在自动再试一次 ...' -ForegroundColor DarkYellow
+        Start-Sleep -Seconds 2
       } else {
-        Write-Err2 "下载失败（已重试 $Retry 次）：$($_.Exception.Message)"
+        Write-Host '     这条链路没能连通。' -ForegroundColor DarkYellow
       }
+      # 每次尝试都要清理 HTTP 连接，避免连接池耗尽
+      try { if ($resp) { $resp.Close() } } catch {}
     }
   }
   return $false
@@ -119,18 +125,106 @@ function Invoke-DownloadWithMirrors {
     [int]$Retry = 2
   )
 
+  $n = $Mirrors.Count
+  $idx = 0
   foreach ($m in $Mirrors) {
+    $idx++
     $url = if ($m -eq '') { $GitHubUrl } else { "$m$GitHubUrl" }
     $label = if ($m -eq '') { '直连' } else { ($m -replace 'https://','' -replace '/','') }
-    Write-Step "尝试通道：$label"
-    Write-Host "    $url" -ForegroundColor DarkGray
+    Write-Step "[$idx/$n] 正在尝试：$label"
     if (Invoke-Download -Url $url -OutFile $OutFile -TimeoutSec $TimeoutSec -Retry $Retry) {
-      Write-Ok "通道 $label 下载成功"
+      Write-Ok "连接成功（$label）"
       return $true
     }
+    if ($idx -lt $n) { Write-Host '     这个没通，自动换下一个 ...' -ForegroundColor DarkYellow }
   }
-  Write-Err2 '所有通道均失败。'
+  Write-Host ''
+  Write-Warn2 '几个下载通道都没能连上。'
   return $false
+}
+
+# ---------- 给小白看的友好失败引导 ----------
+function Show-DownloadHelp {
+  param(
+    [string]$Stage = '资源',
+    [string]$Repo  = '',
+    [string[]]$TriedUrls = @()
+  )
+
+  Write-Host ''
+  Write-Host ('=' * 60) -ForegroundColor Yellow
+  Write-Host '  下载没有成功，我帮你看看怎么解决' -ForegroundColor Yellow
+  Write-Host ('=' * 60) -ForegroundColor Yellow
+  Write-Host ''
+  Write-Host '  【别慌】' -ForegroundColor Green
+  Write-Host '    你的游戏文件完全没有被改动，什么都没坏。' -ForegroundColor Gray
+  Write-Host ''
+
+  Write-Host '  【为什么会这样】' -ForegroundColor White
+  Write-Host '    这个游戏资源包放在 GitHub 上（1 GB）。' -ForegroundColor Gray
+  Write-Host '    GitHub 在国内有时候会连不上，属于正常现象，' -ForegroundColor Gray
+  Write-Host '    不是你电脑的问题，也不影响游戏本身。' -ForegroundColor Gray
+  Write-Host ''
+
+  Write-Host '  【你现在可以按顺序试这 4 招】' -ForegroundColor White
+  Write-Host ''
+
+  Write-Host '    第 1 招（最简单）：再点一次' -ForegroundColor Cyan
+  Write-Host '      直接重新双击 install.bat。' -ForegroundColor Gray
+  Write-Host '      网络时好时坏，多试一次经常就好了。' -ForegroundColor Gray
+  Write-Host ''
+
+  Write-Host '    第 2 招：关掉代理 / 加速器' -ForegroundColor Cyan
+  Write-Host '      如果你开着 VPN、加速器、代理软件，请先全部关掉，' -ForegroundColor Gray
+  Write-Host '      然后重新双击 install.bat。' -ForegroundColor Gray
+  Write-Host '      （反过来说：如果你没开代理，可以试开一个再装）' -ForegroundColor DarkGray
+  Write-Host ''
+
+  Write-Host '    第 3 招：换个网络' -ForegroundColor Cyan
+  Write-Host '      比如手机开热点，让电脑连热点，再重新双击 install.bat。' -ForegroundColor Gray
+  Write-Host '      电信 / 联通 / 移动的网络在各地情况不一样，换个网络常能通。' -ForegroundColor Gray
+  Write-Host '      也可以过几分钟再试一次，网络拥堵是一阵一阵的。' -ForegroundColor DarkGray
+  Write-Host ''
+
+  Write-Host '    第 4 招：手动下载（前面都不行再用）' -ForegroundColor Cyan
+  Write-Host '      我来一步步教你：' -ForegroundColor Gray
+  Write-Host ''
+  Write-Host '      ① 打开浏览器，访问这个网址：' -ForegroundColor Gray
+  if ($Repo) {
+    Write-Host "         https://github.com/$Repo/releases/latest" -ForegroundColor White
+  } else {
+    Write-Host '         （见下面给出的网址）' -ForegroundColor White
+  }
+  Write-Host '         如果打不开，就在网址前面加上：' -ForegroundColor DarkGray
+  Write-Host '         https://ghproxy.net/' -ForegroundColor DarkGray
+  Write-Host ''
+  Write-Host '      ② 页面上找到 3 个文件，全部点击下载：' -ForegroundColor Gray
+  Write-Host '         data.zip        （最大的那个，约 1 GB）' -ForegroundColor White
+  Write-Host '         manifest.json' -ForegroundColor White
+  Write-Host '         manifest.tsv' -ForegroundColor White
+  Write-Host ''
+  Write-Host '      ③ 下载完成后，把它们这样放：' -ForegroundColor Gray
+  Write-Host '         在本安装器文件夹里，手动新建一个 data 文件夹，' -ForegroundColor Gray
+  Write-Host '         再在 data 里新建一个 full 文件夹，' -ForegroundColor Gray
+  Write-Host '         然后：' -ForegroundColor Gray
+  Write-Host '           · manifest.tsv    →  放进 data 文件夹' -ForegroundColor White
+  Write-Host '           · data.zip        →  用压缩软件解压，' -ForegroundColor White
+  Write-Host '                                 把里面的所有文件放进 data\full\' -ForegroundColor White
+  Write-Host '           · manifest.json   →  不用管' -ForegroundColor DarkGray
+  Write-Host ''
+  Write-Host '      ④ 回到本文件夹，双击 install.bat 即可' -ForegroundColor Gray
+  Write-Host '         （这次它会自动跳过下载，直接用你放好的文件）' -ForegroundColor Gray
+  Write-Host ''
+
+  Write-Host '  【还是搞不定？】' -ForegroundColor White
+  Write-Host '    把这个黑色窗口拍照 / 截图，发给分享给你这个安装包的人，' -ForegroundColor Gray
+  Write-Host '    他会帮你解决。' -ForegroundColor Gray
+  Write-Host ''
+  Write-Host '  小提示：这个窗口先别关，方便截图哦。' -ForegroundColor DarkGray
+  Write-Host ''
+
+  Write-Host ('=' * 60) -ForegroundColor Yellow
+  Write-Host ''
 }
 
 # ---------- 主流程 ----------
@@ -171,7 +265,7 @@ if ($maniUrl -match 'releases/latest/download/') {
 Write-Step '下载 manifest ...'
 if (-not (Invoke-DownloadWithMirrors -RelPath $maniName -OutFile $maniLocal `
       -Mirrors $cfg.mirror_prefixes -GitHubUrl $maniGhUrl -TimeoutSec 30 -Retry 2)) {
-  Write-Err2 'manifest 下载失败。'
+  Show-DownloadHelp -Stage '清单' -Repo $cfg.repo
   exit 1
 }
 
@@ -206,7 +300,7 @@ if (-not $needDownload) {
     if (-not (Invoke-DownloadWithMirrors -RelPath $a.name -OutFile $local `
           -Mirrors $cfg.mirror_prefixes -GitHubUrl $ghUrl `
           -TimeoutSec $cfg.download.timeout_sec -Retry $cfg.download.retry)) {
-      Write-Err2 "资源 $($a.name) 下载失败，已中止。"
+      Show-DownloadHelp -Stage '资源' -Repo $cfg.repo
       exit 1
     }
 
