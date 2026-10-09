@@ -1,4 +1,4 @@
-﻿# ===== 星塔旅人 反和谐包 v2.0 · 安装 =====
+﻿# ===== 星塔旅人 反和谐包 v1.1 · 安装 =====
 # 与 v1.0 的差别：如果本地没有资源（data/full），会自动从 GitHub Release 下载。
 # 安装核心逻辑（备份复用 / 台账合并 / md5 校验）与 v1.0 完全一致。
 
@@ -17,7 +17,7 @@ $dataDir = Join-Path $root 'data'
 $fullDir = Join-Path $dataDir 'full'
 $mani    = if ($ManifestOverride) { $ManifestOverride } else { Join-Path $dataDir 'manifest.tsv' }
 
-Write-Title '星塔旅人（国服）· 反和谐包 v2.0 安装程序'
+Write-Title '星塔旅人（国服）· 反和谐包 v1.1 安装程序'
 
 if (-not (Assert-GameNotRunning)) { exit 1 }
 
