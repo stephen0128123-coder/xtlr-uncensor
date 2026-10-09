@@ -1,0 +1,8 @@
+dist/
+work/
+_uncensor_backup_*/
+_last_game_dir.txt
+data/full/
+*.zip
+*.part*
+__pycache__/
