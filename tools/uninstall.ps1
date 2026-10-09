@@ -1,6 +1,4 @@
-﻿# ===== 星塔旅人 反和谐包 v1.1 · 一键退回国服原版 =====
-# 逻辑与 v1.0 完全一致：收集全部备份目录，最早优先逐文件回溯。
-
+﻿# ===== 星塔旅人 反和谐包 · 一键退回国服原版 =====
 param([string]$BackupDir = '', [string]$GameDirOverride = '')
 . (Join-Path $PSScriptRoot 'common.ps1')
 
@@ -13,9 +11,10 @@ Write-Title '星塔旅人（国服）· 退回国服原版'
 if (-not (Assert-GameNotRunning)) { exit 1 }
 
 # 1) 收集所有候选备份目录（按名称升序 = 时间由早到晚）
+#    注意：必须「最早优先」，因为最早的备份保存的才是原始国服版。
 $game = $null
 $cands = @()
-if ($GameDirOverride) { $cands += $GameDirOverride }
+if ($GameDirOverride) { $cands += $GameDirOverride }          # 显式指定者优先
 if (Test-Path -LiteralPath (Join-Path $root '_last_game_dir.txt')) {
   $g0 = (Get-Content -LiteralPath (Join-Path $root '_last_game_dir.txt') -Raw).Trim()
   if (Test-GameDir $g0) { $cands += $g0 }
@@ -35,6 +34,7 @@ if ($BackupDir) {
       if (-not $game) { $game = $c }
     }
   }
+  # 再找包目录旁边的备份
   $bs = Get-ChildItem -LiteralPath $root -Directory -Filter '_uncensor_backup_*' -ErrorAction SilentlyContinue |
         Sort-Object Name
   foreach ($b in $bs) { if ($bakDirs -notcontains $b.FullName) { $bakDirs += $b.FullName } }
@@ -64,7 +64,7 @@ Write-Step "游戏目录: $game"
 $IR = Join-Path $game 'xtlr_Data\StreamingAssets\InstallResource'
 $PS = Join-Path $game 'Persistent_Store\AssetBundles'
 
-# 2) 合并所有备份目录的台账
+# 2) 合并所有备份目录的台账（去重，保留最早出现的顺序）
 $seen  = @{}
 $items = @()
 foreach ($b in $bakDirs) {
