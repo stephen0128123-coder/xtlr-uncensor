@@ -1,0 +1,33 @@
+{
+  "_comment": "星塔旅人反和谐包 · 分发配置。玩家不需要改这个文件。",
+  "_comment2": "你（发布者）只需要在每次更新游戏版本时改 repo 和 manifest 地址。",
+
+  "repo": "stephen0128123-coder/xtlr-uncensor",
+
+  "manifest_url": "https://github.com/stephen0128123-coder/xtlr-uncensor/releases/latest/download/manifest.json",
+
+  "mirror_prefixes": [
+    "",
+    "https://ghproxy.net/",
+    "https://gh-proxy.com/",
+    "https://ghfast.top/"
+  ],
+
+  "_mirror_note": "空字符串代表直连 GitHub。安装器会按顺序尝试，第一个成功即用。",
+
+  "download": {
+    "threads": 4,
+    "retry": 3,
+    "timeout_sec": 120,
+    "chunk_size_kb": 1024,
+    "resume": true
+  },
+
+  "cache_dir": "%TEMP%\\xtlr_uncensor_cache",
+
+  "verify": {
+    "check_md5": true,
+    "check_size": true,
+    "strict": true
+  }
+}
