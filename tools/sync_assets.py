@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-星塔旅人反和谐包 v2.0 · 资源同步工具（发布者使用）
+星塔旅人反和谐包 v1.1 · 资源同步工具（发布者使用）
 
 作用：游戏更新后，从【已被替换过的游戏目录】重新提取资源集，
       生成新的 data/full/ + manifest.tsv，供 build_release.py 打包。
