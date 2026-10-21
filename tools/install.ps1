@@ -11,6 +11,17 @@ $mani    = if ($ManifestOverride) { $ManifestOverride } else { Join-Path $dataDi
 
 Write-Title '星塔旅人（国服）· 模组 安装程序'
 
+# ---- 第一步：环境检查（不通过就绝不装，游戏文件一个字节都不动）----
+$preArgs = @{}
+if ($GameDirOverride) { $preArgs['GameDirOverride'] = $GameDirOverride }
+& (Join-Path $PSScriptRoot 'precheck.ps1') @preArgs
+if ($LASTEXITCODE -ne 0) {
+  Write-Host ''
+  Write-Err2 '环境检查未通过，安装已中止（游戏文件没有任何改动）'
+  Write-Host ''
+  exit 1
+}
+
 if (-not (Test-Path -LiteralPath $mani)) { Write-Err2 "缺少清单文件: $mani"; exit 1 }
 if (-not (Assert-GameNotRunning)) { exit 1 }
 
@@ -37,6 +48,22 @@ if ($existing.Count -gt 0) {
   try { New-Item -ItemType Directory -Path $bak -Force -ErrorAction Stop | Out-Null }
   catch { $bak = Join-Path $root "_uncensor_backup_$stamp"; New-Item -ItemType Directory -Path $bak -Force | Out-Null }
   Write-Step "备份目录: $bak"
+}
+
+# 记录备份对应的游戏版本（以后判断这份备份还能不能用来还原）
+$vmf = Join-Path $game 'Persistent_Store\ss_win.mani'
+$curResVer = ''
+if (Test-Path -LiteralPath $vmf) {
+  foreach ($ln in [System.IO.File]::ReadAllLines($vmf, [System.Text.Encoding]::UTF8)) {
+    $s = $ln.Trim()
+    if ($s.StartsWith('$RES_VER:')) { $curResVer = $s.Substring(9).Trim(); break }
+  }
+}
+if ($curResVer) {
+  $vfile = Join-Path $bak 'game_version.txt'
+  if (-not (Test-Path -LiteralPath $vfile)) {
+    try { [System.IO.File]::WriteAllText($vfile, "RES_VER=$curResVer`r`n", (New-Object System.Text.UTF8Encoding($false))) } catch {}
+  }
 }
 
 $IR = Join-Path $game 'xtlr_Data\StreamingAssets\InstallResource'
@@ -89,13 +116,12 @@ if (Test-Path -LiteralPath $bmfPath) {
 $allLines = @($oldLines + $bakLines) | Select-Object -Unique
 [System.IO.File]::WriteAllLines($bmfPath, $allLines, (New-Object System.Text.UTF8Encoding($false)))
 [System.IO.File]::WriteAllText((Join-Path $bak 'game_dir.txt'), $game, (New-Object System.Text.UTF8Encoding($false)))
-# 记录游戏目录，供 uninstall 精确定位（无需用户再选一次）
 try { [System.IO.File]::WriteAllText((Join-Path $root '_last_game_dir.txt'), $game, (New-Object System.Text.UTF8Encoding($false))) } catch {}
 
 Write-Title '安装完成'
 Write-Ok "已替换 $done 个文件"
 if ($skip   -gt 0) { Write-Warn2 "跳过 $skip 个（缺数据）" }
-if ($warnPre -gt 0) { Write-Warn2 "$warnPre 个文件的原始版本与官方清单不符（可能此前已改过；已照常备份）" }
+if ($warnPre -gt 0) { Write-Warn2 "$warnPre 个文件的原始版本与官方清单不符（已照常备份）" }
 if ($fail   -gt 0) { Write-Err2 "$fail 个校验失败 —— 建议运行 uninstall.bat 回退后重试" }
 Write-Host ''
 Write-Host "  备份位置：$bak" -ForegroundColor Cyan
