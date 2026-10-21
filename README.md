@@ -64,6 +64,11 @@ powershell -ExecutionPolicy Bypass -File tools\precheck.ps1 -AutoRepair
 
 双击 `uninstall.bat`，会退回国服原版。
 
+## 遇到问题先看这两份文档
+
+- [故障排查](docs/TROUBLESHOOTING.md) —— 报错、白块、卡图没变，各类现象的原因和处理办法
+- [资源结构说明](docs/资源结构说明.md) —— 模组改了什么、为什么这么改，理解现象背后的原因
+
 ## 注意事项
 
 - **游戏更新后需要重新运行 `install.bat`**，更新会覆盖模组文件
