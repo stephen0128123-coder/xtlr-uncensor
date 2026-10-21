@@ -120,12 +120,25 @@ if ($game -and (Test-GameDir $game)) {
   }
 
   $verSame = ($exp['RES_VER'] -ne '' -and $exp['RES_VER'] -eq $resVer)
+  # RES_VER 是时间戳编码（26MMDDHHmm），可以直接按数值比新旧
+  $gameOlder = $false
+  try {
+    if ($exp['RES_VER'] -and $resVer) {
+      $gameOlder = ([long]$resVer -lt [long]$exp['RES_VER'])
+    }
+  } catch { }
 
   if ($verSame) {
     Write-Ok ' 资源版本完全一致'
+  } elseif ($gameOlder) {
+    # 游戏比本包旧：玩家下了新包但游戏还没更新 —— 必须先更新游戏
+    Add-Err "你的游戏版本比本模组旧（游戏 $resVer，本包适配 $($exp['RES_VER'])）—— 请先把游戏更新到最新再装"
+    if ($changed.Count -gt 0) {
+      Write-Host "        （有 $($changed.Count) 个包对不上，正是因为游戏还没更新）" -ForegroundColor DarkYellow
+    }
   } elseif ($changed.Count -eq 0 -and $gonePkg.Count -eq 0) {
-    # 版本号变了，但我们涉及的包一个都没变 —— 说明这次更新跟美术资源无关
-    Add-Warn "游戏有更新（RES_VER $($exp['RES_VER']) → $resVer），但本模组涉及的 $cmpCount 个包均未变化"
+    # 游戏已更新，但我们涉及的包一个都没变 —— 这次更新跟美术资源无关
+    Add-Warn "游戏有更新（$($exp['RES_VER']) → $resVer），但本模组涉及的 $cmpCount 个包均未变化"
     Add-Rep ' 这次更新没有改动本模组覆盖的资源，可以正常安装'
   } elseif ($changed.Count -gt 0) {
     Add-Err "游戏更新改动了本模组覆盖的 $($changed.Count) 个资源包 —— 需要新版模组才能适配"
@@ -139,13 +152,29 @@ if ($game -and (Test-GameDir $game)) {
 
   # -------------------------------------------------------- 5. 旧模组残留
   # 判据（不依赖当前版本）：
-  #   cur == pre  → 构建时的国服原版，干净
-  #   cur == post → 本模组版本（装过，重复安装无妨）
+  #   cur == pre          → 构建时的国服原版，干净
+  #   cur == post         → 本模组版本（装过，重复安装无妨）
   #   cur == 当前官方 md5 → 游戏更新后的官方版，干净
-  #   其它        → 被别的东西改过 = 残留
+  #   cur == 历史版本 md5 → 装过以前的模组版本，可以直接覆盖
+  #   其它                → 被别的东西改过 = 异常
   Write-Step '[5/6] 检查是否残留旧模组 ...'
+
+  # 读历史版本哈希表（能认出用户装过的旧版模组）
+  $legacy = @{}
+  $legacyFile = Join-Path $dataDir 'legacy_hashes.json'
+  if (Test-Path -LiteralPath $legacyFile) {
+    try {
+      $lj = [System.IO.File]::ReadAllText($legacyFile, [System.Text.Encoding]::UTF8) | ConvertFrom-Json
+      foreach ($prop in $lj.PSObject.Properties) {
+        $legacy[$prop.Name] = @($prop.Value)
+      }
+    } catch { }
+  }
+
   $dirtyLayers = New-Object System.Collections.ArrayList
   $alreadyMod = 0
+  $oldMod = 0
+  $oldModNames = New-Object System.Collections.ArrayList
   $checked = 0
   foreach ($r in $rows) {
     $layers = if ($r.layer -eq 'BOTH') { @('IR', 'PS') } else { @($r.layer) }
@@ -160,6 +189,11 @@ if ($game -and (Test-GameDir $game)) {
       if ($r.pre -and $cur -eq $r.pre) { $isClean = $true }
       elseif ($r.post -and $cur -eq $r.post) { $isClean = $true; $alreadyMod++ }
       elseif ($off -and $cur -eq $off) { $isClean = $true }
+      elseif ($legacy.ContainsKey($r.pkg) -and ($legacy[$r.pkg] -contains $cur)) {
+        $isClean = $true
+        $oldMod++
+        if (-not $oldModNames.Contains($r.pkg)) { [void]$oldModNames.Add($r.pkg) }
+      }
       if (-not $isClean) {
         [void]$dirtyLayers.Add([pscustomobject]@{ Layer = $L; Pkg = $r.pkg; Cur = $cur })
       }
@@ -200,8 +234,14 @@ if ($game -and (Test-GameDir $game)) {
     break
   }
 
-  Write-Host "      逐个核对了 $checked 个文件（其中 $alreadyMod 个已是本模组版本）" -ForegroundColor DarkGray
+  $detail = "      逐个核对了 $checked 个文件"
+  if ($alreadyMod -gt 0) { $detail += "（$alreadyMod 个已是本模组版本）" }
+  elseif ($oldMod -gt 0) { $detail += "（$oldMod 个是旧版模组，可直接覆盖）" }
+  Write-Host $detail -ForegroundColor DarkGray
 
+  if ($oldMod -gt 0 -and $dirtyLayers.Count -eq 0) {
+    Add-Rep "检测到 $oldMod 个文件来自旧版模组，将直接覆盖为新版（无需先卸载）"
+  }
   if ($dirtyLayers.Count -eq 0) {
     Write-Ok ' 游戏目录干净，没有异常改动'
   } else {
