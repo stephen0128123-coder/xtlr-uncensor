@@ -155,8 +155,12 @@ if ($game -and (Test-GameDir $game)) {
   #   cur == pre          → 构建时的国服原版，干净
   #   cur == post         → 本模组版本（装过，重复安装无妨）
   #   cur == 当前官方 md5 → 游戏更新后的官方版，干净
-  #   cur == 历史版本 md5 → 装过以前的模组版本，可以直接覆盖
+  #   cur == 历史版本 md5 → 装过以前的模组版本，安装时会被覆盖
   #   其它                → 被别的东西改过 = 异常
+  #
+  # ★ 关键：清单里声明 IR 的包，如果 PS 层也有同名文件，要一并检查。
+  #   因为游戏读 PS 优先，PS 层残留旧模组 → 我们写 IR 等于白写。
+  #   这类「另一层有残留」不算致命错误，安装时会被自动补写覆盖。
   Write-Step '[5/6] 检查是否残留旧模组 ...'
 
   # 读历史版本哈希表（能认出用户装过的旧版模组）
@@ -172,30 +176,54 @@ if ($game -and (Test-GameDir $game)) {
   }
 
   $dirtyLayers = New-Object System.Collections.ArrayList
+  $shadowDirty = New-Object System.Collections.ArrayList   # 另一层有残留（可自动补写）
   $alreadyMod = 0
   $oldMod = 0
-  $oldModNames = New-Object System.Collections.ArrayList
   $checked = 0
+
+  function Test-LayerState([string]$cur, $row, [hashtable]$offi, [hashtable]$leg, [ref]$alreadyModRef, [ref]$oldModRef) {
+    if ($row.pre -and $cur -eq $row.pre) { return 'clean' }
+    if ($row.post -and $cur -eq $row.post) { $alreadyModRef.Value++; return 'clean' }
+    if ($offi[$row.pkg] -and $cur -eq $offi[$row.pkg]) { return 'clean' }
+    if ($leg.ContainsKey($row.pkg) -and ($leg[$row.pkg] -contains $cur)) { $oldModRef.Value++; return 'oldmod' }
+    return 'unknown'
+  }
+
   foreach ($r in $rows) {
-    $layers = if ($r.layer -eq 'BOTH') { @('IR', 'PS') } else { @($r.layer) }
-    foreach ($L in $layers) {
+    # 主层
+    $mainDir = if ($r.layer -eq 'IR') { $IR } elseif ($r.layer -eq 'PS') { $PS } else { $null }
+    $mainLayers = if ($r.layer -eq 'BOTH') { @('IR', 'PS') } else { @($r.layer) }
+
+    foreach ($L in $mainLayers) {
       $dir = if ($L -eq 'IR') { $IR } else { $PS }
       $dst = Join-Path $dir $r.pkg
       if (-not (Test-Path -LiteralPath $dst)) { continue }
       $checked++
       $cur = Get-Md5 $dst
-      $off = $officialHash[$r.pkg]
-      $isClean = $false
-      if ($r.pre -and $cur -eq $r.pre) { $isClean = $true }
-      elseif ($r.post -and $cur -eq $r.post) { $isClean = $true; $alreadyMod++ }
-      elseif ($off -and $cur -eq $off) { $isClean = $true }
-      elseif ($legacy.ContainsKey($r.pkg) -and ($legacy[$r.pkg] -contains $cur)) {
-        $isClean = $true
-        $oldMod++
-        if (-not $oldModNames.Contains($r.pkg)) { [void]$oldModNames.Add($r.pkg) }
-      }
-      if (-not $isClean) {
+      $am = 0; $om = 0
+      $st = Test-LayerState $cur $r $officialHash $legacy ([ref]$am) ([ref]$om)
+      $alreadyMod += $am
+      $oldMod += $om
+      if ($st -eq 'unknown') {
         [void]$dirtyLayers.Add([pscustomobject]@{ Layer = $L; Pkg = $r.pkg; Cur = $cur })
+      }
+    }
+
+    # 另一层（清单没声明的层，但文件存在）—— 只检查被污染的情况
+    if ($r.layer -ne 'BOTH') {
+      $other = if ($r.layer -eq 'IR') { 'PS' } else { 'IR' }
+      $odir = if ($other -eq 'IR') { $IR } else { $PS }
+      $odst = Join-Path $odir $r.pkg
+      if (Test-Path -LiteralPath $odst) {
+        $checked++
+        $ocur = Get-Md5 $odst
+        $am2 = 0; $om2 = 0
+        $st2 = Test-LayerState $ocur $r $officialHash $legacy ([ref]$am2) ([ref]$om2)
+        $alreadyMod += $am2
+        $oldMod += $om2
+        if ($st2 -eq 'oldmod' -or $st2 -eq 'unknown') {
+          [void]$shadowDirty.Add([pscustomobject]@{ Layer = $other; Pkg = $r.pkg; Cur = $ocur })
+        }
       }
     }
   }
@@ -241,6 +269,11 @@ if ($game -and (Test-GameDir $game)) {
 
   if ($oldMod -gt 0 -and $dirtyLayers.Count -eq 0) {
     Add-Rep "检测到 $oldMod 个文件来自旧版模组，将直接覆盖为新版（无需先卸载）"
+  }
+
+  # 另一层有残留 → 不是致命问题，安装时会自动补写覆盖
+  if ($shadowDirty.Count -gt 0) {
+    Add-Rep "发现 $($shadowDirty.Count) 个文件在被游戏优先读取的另一层还留着旧版，安装时会一并覆盖"
   }
   if ($dirtyLayers.Count -eq 0) {
     Write-Ok ' 游戏目录干净，没有异常改动'
