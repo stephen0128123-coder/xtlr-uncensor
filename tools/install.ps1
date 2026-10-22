@@ -9,21 +9,24 @@ $dataDir = Join-Path $root 'data'
 $fullDir = Join-Path $dataDir 'full'
 $mani    = if ($ManifestOverride) { $ManifestOverride } else { Join-Path $dataDir 'manifest.tsv' }
 
-Write-Title '星塔旅人（国服）· 模组 安装程序'
+Write-Title '星塔旅人（国服）· 模组 安装'
 
-# ---- 第一步：环境检查（不通过就绝不装，游戏文件一个字节都不动）----
-# 默认自动修复：能自己还原的就直接还原，省掉玩家手动跑 uninstall 的步骤
-$preArgs = @{ AutoRepair = $true }
-if ($GameDirOverride) { $preArgs['GameDirOverride'] = $GameDirOverride }
-& (Join-Path $PSScriptRoot 'precheck.ps1') @preArgs
-if ($LASTEXITCODE -ne 0) {
+# ---- 0. 安装包完整性（这是唯一必须拦的）----
+if (-not (Test-Path -LiteralPath $mani) -or -not (Test-Path -LiteralPath $fullDir)) {
   Write-Host ''
-  Write-Err2 '环境检查未通过，安装已中止（游戏文件没有任何改动）'
+  Write-Host '  这个文件夹不完整，安装包没解压全。' -ForegroundColor Red
+  Write-Host ''
+  Write-Host '  怎么办：' -ForegroundColor Yellow
+  Write-Host '    1. 关掉这个窗口' -ForegroundColor Yellow
+  Write-Host '    2. 右键压缩包 →「解压到当前文件夹」' -ForegroundColor Yellow
+  Write-Host '       （不要双击压缩包里的 install.bat，那样只会解出一部分）' -ForegroundColor Yellow
+  Write-Host '    3. 进解压出来的文件夹，双击里面的 install.bat' -ForegroundColor Yellow
+  Write-Host ''
+  Write-Host '  判断对不对：data 文件夹要和 install.bat 在同一个目录里。' -ForegroundColor DarkGray
   Write-Host ''
   exit 1
 }
 
-if (-not (Test-Path -LiteralPath $mani)) { Write-Err2 "缺少清单文件: $mani"; exit 1 }
 if (-not (Assert-GameNotRunning)) { exit 1 }
 
 $game = if ($GameDirOverride) { $GameDirOverride } else { Get-GameDirInteractive }
@@ -192,7 +195,7 @@ if ($skip -gt 0) { Write-Warn2 "跳过 $skip 个（安装包缺数据）" }
 
 Write-Host ''
 Write-Host "  备份位置：$bak" -ForegroundColor Cyan
-Write-Host '  如需退回国服原版，运行 uninstall.bat 即可。' -ForegroundColor Cyan
+Write-Host '  下次更新游戏前，先双击 uninstall.bat 退回国服原版，再更新。' -ForegroundColor Cyan
 if ($badPkg.Count -gt 0) {
   Write-Host ''
   Write-Host '  有包写入失败，可以试试：' -ForegroundColor Yellow
