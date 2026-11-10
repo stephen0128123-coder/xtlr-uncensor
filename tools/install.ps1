@@ -7,7 +7,7 @@ function Get-InstallPlan($ctx, $package, $receipt) {
     foreach ($row in $package.rows) {
         $dst = Get-Target $ctx $row
         $cur = Get-Hash $dst
-        if (@($row.allowedPre) -cnotcontains $cur -and $cur -cne $row.post) { throw "目标不是本次允许的官方原件或本包内容：$($row.key)；未写入任何资源。" }
+        # Back up exact existing bytes, including valid older or third-party replacements.
         $owned = @($receipt.entries | Where-Object { $_.layer -ceq $row.layer -and $_.pkg -ceq $row.pkg })
         if ($owned.Count -gt 0 -and $owned[0].state -ceq 'pending' -and $cur -ceq $row.post) { throw "存在未确认的中断写入：$($row.key)。保留备份，请人工核对，不盲目恢复。" }
         if ($cur -ceq $row.post) { continue }
@@ -29,6 +29,7 @@ try {
         if ((Get-Hash $src) -cne $row.post) { throw "安装包源数据损坏：$($row.file)。请重新完整解压，未写入资源。" }
     }
     $ctx = Get-Context $package $GameDirOverride
+    Remember-GameDir $root $ctx.game
     $receipt = Read-Receipt $ctx $package
     $plan = @(Get-InstallPlan $ctx $package $receipt)
     if ($plan.Count -eq 0) { Write-Ok '所有目标已是本包内容，无需写入（不接管无收据的目标）。'; exit 0 }

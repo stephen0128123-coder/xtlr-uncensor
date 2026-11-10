@@ -21,6 +21,7 @@ try {
     $root = Split-Path -Parent $PSScriptRoot
     $package = Read-Package $root $ManifestOverride
     $ctx = Get-Context $package $GameDirOverride
+    Remember-GameDir $root $ctx.game
     $receipt = Read-Receipt $ctx $package
     $plan = @(Get-RestorePlan $ctx $receipt)
     if ($plan.Count -eq 0) { Write-Ok '本包没有需要恢复的安装记录，未写入资源。'; exit 0 }

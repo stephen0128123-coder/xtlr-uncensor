@@ -41,15 +41,98 @@ function Test-GameDir([string]$p) {
     }
     return $true
 }
-function Get-GameDirInteractive {
-    # 不全盘扫描、不猜测多个客户端。保留拖目录+回车的双击交互。
-    Write-Host '  请把星塔旅人国服安装目录拖到本窗口，按回车。' -ForegroundColor Yellow
-    for ($i = 0; $i -lt 5; $i++) {
-        $answer = (Read-Host '  目录').Trim().Trim('"').Trim("'")
-        if (Test-GameDir $answer) { return $answer }
-        Write-Err2 '目录无效，需含 xtlr.exe、资源目录及 Persistent_Store/ss_win.mani。'
+function Get-GameSearchRoots {
+    return @(Get-PSDrive -PSProvider FileSystem -ErrorAction SilentlyContinue | Where-Object { $_.Root -match '^[A-Za-z]:\\$' } | ForEach-Object { $_.Root })
+}
+function Get-RegisteredGameDirs {
+    foreach ($base in @('HKCU:\Software','HKLM:\SOFTWARE','HKLM:\SOFTWARE\WOW6432Node')) {
+        foreach ($vendor in @('Yostar','YostarGames','RoamingStar','StellaSora')) {
+            $key = Join-Path $base $vendor
+            if (Test-Path $key) {
+                try {
+                    foreach ($prop in (Get-ItemProperty $key -ErrorAction Stop).PSObject.Properties) {
+                        $value = [string]$prop.Value
+                        if ($value -match '^[A-Za-z]:\\') { $value }
+                    }
+                } catch {}
+            }
+        }
     }
-    throw '未能确定游戏目录，未写入资源。'
+    foreach ($key in @('HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall','HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall','HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall')) {
+        foreach ($item in @(Get-ChildItem $key -ErrorAction SilentlyContinue)) {
+            try {
+                $app = Get-ItemProperty $item.PSPath -ErrorAction Stop
+                if ($null -ne $app.PSObject.Properties['DisplayName'] -and [string]$app.DisplayName -match '星塔旅人|Stella.?Sora' -and $null -ne $app.PSObject.Properties['InstallLocation']) { [string]$app.InstallLocation }
+            } catch {}
+        }
+    }
+}
+function Find-GameDirs([string[]]$SearchRoots = @(), [switch]$NoDeepSearch) {
+    $found = New-Object 'Collections.Generic.List[string]'
+    $seen = @{}
+    function Add-GameCandidate([string]$candidate) {
+        if ([string]::IsNullOrWhiteSpace($candidate)) { return }
+        try {
+            $path = [IO.Path]::GetFullPath($candidate.Trim().Trim('"').Trim("'"))
+            if ($path -match '(?i)[\\/](tests?|fixtures?|runs|_xingta_switch|_uncensor_backup_[^\\/]*|_removed[^\\/]*)[\\/]') { return }
+            if (-not (Test-GameDir $path)) { return }
+            # Empty xtlr.exe placeholders are developer fixtures, not installations.
+            if ((Get-Item -LiteralPath (Join-Path $path 'xtlr.exe')).Length -eq 0) { return }
+            $path = (Assert-PlainPath $path).TrimEnd('\','/')
+            $key = $path.ToLowerInvariant()
+            if (-not $seen.ContainsKey($key)) { $seen[$key]=$true; [void]$found.Add($path) }
+        } catch {}
+    }
+    if ($SearchRoots.Count -eq 0) {
+        $packageRoot = Split-Path -Parent $PSScriptRoot
+        $hint = Join-Path $packageRoot '_last_game_dir.txt'
+        if (Test-Path -LiteralPath $hint -PathType Leaf) { try { Add-GameCandidate ([IO.File]::ReadAllText($hint).Trim()) } catch {} }
+        Add-GameCandidate $packageRoot
+        Add-GameCandidate (Split-Path -Parent $packageRoot)
+        foreach ($hint in @(Get-RegisteredGameDirs)) {
+            foreach ($p in @($hint,(Join-Path $hint 'StellaSora_CN'),(Join-Path $hint 'YostarGames/StellaSora_CN'))) { Add-GameCandidate $p }
+        }
+        $SearchRoots = @(Get-GameSearchRoots)
+    }
+    $relative = @('YostarGames/StellaSora_CN','Program Files/YostarGames/StellaSora_CN','Program Files (x86)/YostarGames/StellaSora_CN','Games/YostarGames/StellaSora_CN','Game/YostarGames/StellaSora_CN','Program Files/StellaSora_CN','StellaSora_CN','StellaSora')
+    foreach ($drive in $SearchRoots) {
+        Add-GameCandidate $drive
+        foreach ($rel in $relative) { Add-GameCandidate (Join-Path $drive $rel) }
+    }
+    if ($found.Count -eq 0 -and -not $NoDeepSearch) {
+        Write-Step '常见位置未找到，正在浅层搜索 xtlr.exe ...'
+        foreach ($drive in $SearchRoots) {
+            foreach ($exe in @(Get-ChildItem -LiteralPath $drive -Filter xtlr.exe -Recurse -Depth 5 -File -ErrorAction SilentlyContinue)) { Add-GameCandidate $exe.DirectoryName }
+        }
+    }
+    return $found.ToArray()
+}
+function Select-GameFolder {
+    Add-Type -AssemblyName System.Windows.Forms
+    $dialog = New-Object Windows.Forms.FolderBrowserDialog
+    try {
+        $dialog.Description = '未能自动找到游戏。请选择包含 xtlr.exe 的国服游戏目录。'
+        $dialog.ShowNewFolderButton = $false
+        if ($dialog.ShowDialog() -eq [Windows.Forms.DialogResult]::OK -and (Test-GameDir $dialog.SelectedPath)) { return $dialog.SelectedPath }
+    } finally { $dialog.Dispose() }
+    throw '没有选择有效国服目录，未写入资源。'
+}
+function Get-GameDirInteractive {
+    Write-Step '正在自动定位星塔旅人国服 ...'
+    $games = @(Find-GameDirs)
+    if ($games.Count -eq 1) { Write-Ok "自动找到：$($games[0])"; return $games[0] }
+    if ($games.Count -gt 1) {
+        Write-Host '  找到多个国服目录，请选择本次要使用的一个：' -ForegroundColor Yellow
+        for ($i=0; $i -lt $games.Count; $i++) { Write-Host ("  {0}. {1}" -f ($i+1),$games[$i]) }
+        $choice=0
+        if ([int]::TryParse((Read-Host '  编号'),[ref]$choice) -and $choice -ge 1 -and $choice -le $games.Count) { return $games[$choice-1] }
+        throw '未选择有效编号，未写入资源。'
+    }
+    Write-Step '没有自动找到，将打开文件夹选择窗口。'
+    return Select-GameFolder
+}
+function Remember-GameDir([string]$root,[string]$game) {
+    try { [IO.File]::WriteAllText((Join-Path $root '_last_game_dir.txt'),$game,(New-Object Text.UTF8Encoding($false))) } catch {}
 }
 function Assert-GameNotRunning {
     if (Get-Process -Name 'xtlr' -ErrorAction SilentlyContinue) { throw '请先完全退出游戏（xtlr.exe），再操作。' }
@@ -108,8 +191,26 @@ function Get-Context($package, [string]$gameOverride) {
     if (-not (Test-GameDir $game)) { throw '指定目录无效；不会回退查找其他游戏目录。' }
     Assert-GameNotRunning
     $mani = Assert-PlainPath (Join-Path $game 'Persistent_Store/ss_win.mani')
-    $matches = @([IO.File]::ReadAllLines($mani, [Text.Encoding]::UTF8) | Where-Object { $_.Trim().StartsWith('$RES_VER:') })
-    if ($matches.Count -ne 1 -or $matches[0].Trim().Substring(9).Trim() -cne $package.meta.resVer -or (Get-Hash $mani 'SHA256') -cne $package.meta.baselineId) { throw '当前 RES_VER/官方基准与本包不符，不能用本包安装或还原；未写入资源。请保留现状和备份。' }
+    # Compare official advertised target versions, not the player's current modified bytes.
+    $official = @{}; $res = @(); $gameVersion = @()
+    foreach ($line in [IO.File]::ReadAllLines($mani, [Text.Encoding]::UTF8)) {
+        $s=$line.Trim()
+        if ($s.StartsWith('$RES_VER:')) { $res += $s.Substring(9).Trim(); continue }
+        if ($s.StartsWith('$GAME_VER:')) { $gameVersion += $s.Substring(10).Trim(); continue }
+        if ($s -and -not $s.StartsWith('$')) {
+            $parts=$s -split '\|'
+            if ($parts.Count -ge 2 -and $parts[1] -cmatch '^[0-9a-f]{32}$') { $official[$parts[0]]=$parts[1] }
+        }
+    }
+    if ($res.Count -ne 1) { throw '未读到有效游戏资源版本，请先完成游戏更新；未写入资源。' }
+    $versionFile = Join-Path (Split-Path -Parent $PSScriptRoot) 'data/game_version.txt'
+    if (-not (Test-Path -LiteralPath $versionFile -PathType Leaf)) { throw '安装包缺少 game_version.txt，请完整解压；未写入资源。' }
+    $expected=@([IO.File]::ReadAllLines($versionFile,[Text.Encoding]::UTF8) | ForEach-Object { $_.Trim() } | Where-Object { $_.StartsWith('GAME_VER=') })
+    if ($expected.Count -ne 1 -or $expected[0].Substring(9).Trim() -cnotmatch '^[0-9]+(?:\.[0-9]+){1,3}$') { throw '安装包 GAME_VER 缺失、重复或格式无效，请重新完整解压；未写入资源。' }
+    if ($gameVersion.Count -ne 1 -or $gameVersion[0] -cne $expected[0].Substring(9).Trim()) { throw '游戏版本与本包适配版本不同，请使用适配的新包；未写入资源。' }
+    foreach ($row in $package.rows) {
+        if (-not $official.ContainsKey($row.pkg) -or $official[$row.pkg] -cne $row.pre) { throw "游戏官方清单中的资源版本已变化或缺失，本包暂不适配：$($row.key)；未写入资源。" }
+    }
     $ir = Assert-PlainPath (Join-Path $game 'xtlr_Data/StreamingAssets/InstallResource')
     $ps = Assert-PlainPath (Join-Path $game 'Persistent_Store/AssetBundles')
     $stateRoot = Assert-PlainPath (Join-Path $game '_xingta_switch')
@@ -139,7 +240,7 @@ function Read-Receipt($ctx, $package) {
             $row = @($package.rows | Where-Object { $_.layer -ceq $e.layer -and $_.pkg -ceq $e.pkg })
             if ($row.Count -ne 1) { throw '收据包含清单外目标。' }
             $key = $e.layer + '/' + $e.pkg
-            if ($seen.ContainsKey($key) -or $e.pre -cne $row[0].pre -or $e.post -cne $row[0].post -or @($row[0].allowedPre) -cnotcontains $e.backupMd5 -or $e.backupSha256 -cnotmatch '^[0-9a-f]{64}$' -or @('pending','written','restored') -cnotcontains $e.state) { throw '安装收据损坏/重复/哈希不符。' }
+            if ($seen.ContainsKey($key) -or $e.pre -cne $row[0].pre -or $e.post -cne $row[0].post -or $e.backupMd5 -cnotmatch '^[0-9a-f]{32}$' -or $e.backupSha256 -cnotmatch '^[0-9a-f]{64}$' -or @('pending','written','restored') -cnotcontains $e.state) { throw '安装收据损坏/重复/哈希不符。' }
             $seen[$key] = $true
             $bf = Get-Backup $ctx $row[0]
             if ((Get-Hash $bf) -cne $e.backupMd5 -or (Get-Hash $bf 'SHA256') -cne $e.backupSha256) { throw "备份损坏：$key；拒绝覆盖资源。" }

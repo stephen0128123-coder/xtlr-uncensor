@@ -35,21 +35,6 @@
   },
   "runtimeShellFiles": [
     {
-      "relative": "tools/common.ps1",
-      "bytes": 11753,
-      "sha256": "d54db3693c9d7eaf301796bd028fa030385289f76372e697fafda081392fc11b"
-    },
-    {
-      "relative": "tools/install.ps1",
-      "bytes": 4499,
-      "sha256": "bd5b8cd5605f6033c8a2efa1dd4cfc410d27bf47f338e04d15439cac4e302586"
-    },
-    {
-      "relative": "tools/uninstall.ps1",
-      "bytes": 2995,
-      "sha256": "159b28e3a668694b087e561424a8fdbc5676a737dabac526543ac4f84b8bb68b"
-    },
-    {
       "relative": "install.bat",
       "bytes": 199,
       "sha256": "68ca55a0c15fc38c542596768552c066a5721bcedfb5a4391f844a3018631b7f"
@@ -58,6 +43,21 @@
       "relative": "uninstall.bat",
       "bytes": 201,
       "sha256": "0f0320abb31947e950b87429b42ac1c4b7c08b738312b5e8a1112a6866e6d2f5"
+    },
+    {
+      "relative": "tools/common.ps1",
+      "bytes": 18246,
+      "sha256": "087773407e7c9cb0fd1e8f54e1bc9bf8e5b1a66166ad8b60ba247588c6335c91"
+    },
+    {
+      "relative": "tools/install.ps1",
+      "bytes": 4509,
+      "sha256": "65cb8fd2280ab86db18d21526d652c9a37129b197bc2c3192ad45a494dd3c2a6"
+    },
+    {
+      "relative": "tools/uninstall.ps1",
+      "bytes": 3084,
+      "sha256": "df05fdbac8c21b7041ea4778b760c3479c0487e1a5fffe44e9936988ad468270"
     }
   ],
   "existingExceptions": [
@@ -82,5 +82,7 @@
     "11110",
     "20139"
   ],
-  "version": "v2.1.1"
+  "version": "v2.1.1",
+  "installerRevision": "auto-detect-and-backup-current-bytes",
+  "installerSimulationGroups": 18
 }
