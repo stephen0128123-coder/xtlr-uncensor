@@ -1,206 +1,65 @@
-﻿# ===== 星塔旅人 模组 · 安装 =====
+﻿# 星塔旅人 · 小开关安装；只处理清单中明确列出的层
 param([string]$ManifestOverride = '', [string]$GameDirOverride = '')
 . (Join-Path $PSScriptRoot 'common.ps1')
-
-try { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8 } catch {}
-
-$root    = Split-Path -Parent $PSScriptRoot
-$dataDir = Join-Path $root 'data'
-$fullDir = Join-Path $dataDir 'full'
-$mani    = if ($ManifestOverride) { $ManifestOverride } else { Join-Path $dataDir 'manifest.tsv' }
-
-Write-Title '星塔旅人（国服）· 模组 安装'
-
-# ---- 0. 安装包完整性（这是唯一必须拦的）----
-if (-not (Test-Path -LiteralPath $mani) -or -not (Test-Path -LiteralPath $fullDir)) {
-  Write-Host ''
-  Write-Host '  这个文件夹不完整，安装包没解压全。' -ForegroundColor Red
-  Write-Host ''
-  Write-Host '  怎么办：' -ForegroundColor Yellow
-  Write-Host '    1. 关掉这个窗口' -ForegroundColor Yellow
-  Write-Host '    2. 右键压缩包 →「解压到当前文件夹」' -ForegroundColor Yellow
-  Write-Host '       （不要双击压缩包里的 install.bat，那样只会解出一部分）' -ForegroundColor Yellow
-  Write-Host '    3. 进解压出来的文件夹，双击里面的 install.bat' -ForegroundColor Yellow
-  Write-Host ''
-  Write-Host '  判断对不对：data 文件夹要和 install.bat 在同一个目录里。' -ForegroundColor DarkGray
-  Write-Host ''
-  exit 1
-}
-
-if (-not (Assert-GameNotRunning)) { exit 1 }
-
-$game = if ($GameDirOverride) { $GameDirOverride } else { Get-GameDirInteractive }
-if (-not (Test-GameDir $game)) { Write-Err2 '未能确定游戏目录，已中止。'; exit 1 }
-
-$rows = Read-Manifest $mani
-Write-Step "清单包含 $($rows.Count) 个文件"
-
-# ---- 备份目录 ----
-# 关键：必须复用「最早」的那份备份，因为只有它保存的是原始国服版。
-$existing = @()
-$existing += @(Get-ChildItem -LiteralPath $game -Directory -Filter '_uncensor_backup_*' -ErrorAction SilentlyContinue)
-$existing += @(Get-ChildItem -LiteralPath $root -Directory -Filter '_uncensor_backup_*' -ErrorAction SilentlyContinue)
-$existing  = @($existing | Sort-Object Name)
-if ($existing.Count -gt 0) {
-  $bak = $existing[0].FullName
-  Write-Step "复用已有备份目录: $bak"
-} else {
-  $stamp = Get-Date -Format 'yyyyMMdd_HHmmss'
-  $bak = Join-Path $game "_uncensor_backup_$stamp"
-  try { New-Item -ItemType Directory -Path $bak -Force -ErrorAction Stop | Out-Null }
-  catch { $bak = Join-Path $root "_uncensor_backup_$stamp"; New-Item -ItemType Directory -Path $bak -Force | Out-Null }
-  Write-Step "备份目录: $bak"
-}
-
-# 记录备份对应的游戏版本
-$vmf = Join-Path $game 'Persistent_Store\ss_win.mani'
-$curResVer = ''
-if (Test-Path -LiteralPath $vmf) {
-  foreach ($ln in [System.IO.File]::ReadAllLines($vmf, [System.Text.Encoding]::UTF8)) {
-    $s = $ln.Trim()
-    if ($s.StartsWith('$RES_VER:')) { $curResVer = $s.Substring(9).Trim(); break }
-  }
-}
-if ($curResVer) {
-  $vfile = Join-Path $bak 'game_version.txt'
-  if (-not (Test-Path -LiteralPath $vfile)) {
-    try { [System.IO.File]::WriteAllText($vfile, "RES_VER=$curResVer`r`n", (New-Object System.Text.UTF8Encoding($false))) } catch {}
-  }
-}
-
-$IR = Join-Path $game 'xtlr_Data\StreamingAssets\InstallResource'
-$PS = Join-Path $game 'Persistent_Store\AssetBundles'
-
-# 读历史版本哈希（识别旧模组残留）
-$legacy = @{}
-$legacyFile = Join-Path $dataDir 'legacy_hashes.json'
-if (Test-Path -LiteralPath $legacyFile) {
-  try {
-    $lj = [System.IO.File]::ReadAllText($legacyFile, [System.Text.Encoding]::UTF8) | ConvertFrom-Json
-    foreach ($prop in $lj.PSObject.Properties) { $legacy[$prop.Name] = @($prop.Value) }
-  } catch { }
-}
-
-$bakLines = @()
-$done = 0; $fail = 0; $skip = 0
-$extraFixed = 0; $extraList = @()
-$okPkg = 0; $badPkg = @()
-$i = 0
-
-foreach ($r in $rows) {
-  $i++
-  if (($i % 40) -eq 0) { Write-Host "  ... 进度 $i / $($rows.Count)" -ForegroundColor DarkGray }
-
-  $srcF = Join-Path $fullDir $r.file
-  if (-not (Test-Path -LiteralPath $srcF)) { Write-Warn2 "缺数据文件 $($r.pkg)"; $skip++; continue }
-
-  $layers = @()
-  if ($r.layer -eq 'BOTH') { $layers = @('IR', 'PS') } else { $layers = @($r.layer) }
-
-  $thisPkgOk = $true
-
-  # ---- 主写入 ----
-  foreach ($L in $layers) {
-    $dir = if ($L -eq 'IR') { $IR } else { $PS }
-    if (-not (Test-Path -LiteralPath $dir)) { $thisPkgOk = $false; continue }
-    $dst = Join-Path $dir $r.pkg
-
-    if (Test-Path -LiteralPath $dst) {
-      $bd = Join-Path $bak $L
-      New-Item -ItemType Directory -Path $bd -Force | Out-Null
-      $bf = Join-Path $bd $r.pkg
-      if (-not (Test-Path -LiteralPath $bf)) {
-        Copy-Item -LiteralPath $dst -Destination $bf -Force
-        $bakLines += ($L + "`t" + $r.pkg)
-      }
+try { [Console]::OutputEncoding = [Text.Encoding]::UTF8 } catch {}
+function Get-InstallPlan($ctx, $package, $receipt) {
+    $plan = @()
+    foreach ($row in $package.rows) {
+        $dst = Get-Target $ctx $row
+        $cur = Get-Hash $dst
+        if (@($row.allowedPre) -cnotcontains $cur -and $cur -cne $row.post) { throw "目标不是本次允许的官方原件或本包内容：$($row.key)；未写入任何资源。" }
+        $owned = @($receipt.entries | Where-Object { $_.layer -ceq $row.layer -and $_.pkg -ceq $row.pkg })
+        if ($owned.Count -gt 0 -and $owned[0].state -ceq 'pending' -and $cur -ceq $row.post) { throw "存在未确认的中断写入：$($row.key)。保留备份，请人工核对，不盲目恢复。" }
+        if ($cur -ceq $row.post) { continue }
+        $bf = Get-Backup $ctx $row
+        if ($owned.Count -gt 0 -and $owned[0].backupMd5 -cne $cur) { throw "当前原件与本包历史安装前原件不同：$($row.key)，拒绝复用旧备份。" }
+        if ((Test-Path -LiteralPath $bf) -and ((Get-Hash $bf) -cne $cur -or (Get-Hash $bf 'SHA256') -cne (Get-Hash $dst 'SHA256'))) { throw "本包备份与实际原件不同：$($row.key)。" }
+        $plan += [pscustomobject]@{row=$row;dst=$dst;backup=$bf;originalMd5=$cur;originalSha256=(Get-Hash $dst 'SHA256')}
     }
-
-    try {
-      Copy-Item -LiteralPath $srcF -Destination $dst -Force
-      if ((Get-Md5 $dst) -eq $r.post) { $done++ }
-      else { $fail++; $thisPkgOk = $false }
-    } catch {
-      $fail++
-      $thisPkgOk = $false
+    return $plan
+}
+$lock = $null
+try {
+    Write-Title '星塔旅人（国服）· 小开关安装'
+    $root = Split-Path -Parent $PSScriptRoot
+    $package = Read-Package $root $ManifestOverride
+    # 必须在创建备份/收据、写任何目标之前，校验全部源 post。
+    foreach ($row in $package.rows) {
+        $src = Get-LeafPath $package.full $row.file
+        if ((Get-Hash $src) -cne $row.post) { throw "安装包源数据损坏：$($row.file)。请重新完整解压，未写入资源。" }
     }
-  }
-
-  # ---- 补写：另一层如果被旧模组污染，也写成我们的版本 ----
-  # 只处理「另一层文件已存在」的情况：
-  #   · 不存在  → 不动（避免凭空造文件）
-  #   · 是官方  → 不动
-  #   · 是我们  → 不动
-  #   · 是旧模组/未知 → 覆盖成我们的
-  if ($r.layer -ne 'BOTH') {
-    $other = if ($r.layer -eq 'IR') { 'PS' } else { 'IR' }
-    $odir = if ($other -eq 'IR') { $IR } else { $PS }
-    $odst = Join-Path $odir $r.pkg
-    if (Test-Path -LiteralPath $odst) {
-      $ocur = Get-Md5 $odst
-      $isOurs = ($r.post -and $ocur -eq $r.post)
-      $isOfficial = $false
-      # 官方 md5 从清单里的 pre 判断（构建时的官方版）
-      if ($r.pre -and $ocur -eq $r.pre) { $isOfficial = $true }
-      if (-not $isOurs -and -not $isOfficial) {
-        # 备份另一层的原始状态
-        $bd = Join-Path $bak $other
-        New-Item -ItemType Directory -Path $bd -Force | Out-Null
-        $bf = Join-Path $bd $r.pkg
-        if (-not (Test-Path -LiteralPath $bf)) {
-          Copy-Item -LiteralPath $odst -Destination $bf -Force
-          $bakLines += ($other + "`t" + $r.pkg)
-        }
-        try {
-          Copy-Item -LiteralPath $srcF -Destination $odst -Force
-          if ((Get-Md5 $odst) -eq $r.post) {
-            $extraFixed++
-            $extraList += ($other + "/" + $r.pkg)
-          } else { $fail++; $thisPkgOk = $false }
-        } catch { $fail++; $thisPkgOk = $false }
-      }
+    $ctx = Get-Context $package $GameDirOverride
+    $receipt = Read-Receipt $ctx $package
+    $plan = @(Get-InstallPlan $ctx $package $receipt)
+    if ($plan.Count -eq 0) { Write-Ok '所有目标已是本包内容，无需写入（不接管无收据的目标）。'; exit 0 }
+    $lock = Open-StateLock $ctx
+    # 加锁后重新检查，避免本外壳同时运行产生过期计划。
+    $receipt = Read-Receipt $ctx $package
+    $plan = @(Get-InstallPlan $ctx $package $receipt)
+    foreach ($item in $plan) {
+        $row = $item.row
+        $src = Get-LeafPath $package.full $row.file
+        if ((Get-Hash $src) -cne $row.post -or (Get-Hash $item.dst) -cne $item.originalMd5 -or (Get-Hash $item.dst 'SHA256') -cne $item.originalSha256) { throw "写入前文件发生变化：$($row.key)，停止后续写入。" }
+        New-Item -ItemType Directory -Path (Split-Path -Parent $item.backup) -Force | Out-Null
+        if (-not (Test-Path -LiteralPath $item.backup)) { Copy-Item -LiteralPath $item.dst -Destination $item.backup }
+        if ((Get-Hash $item.backup) -cne $item.originalMd5 -or (Get-Hash $item.backup 'SHA256') -cne $item.originalSha256) { throw "备份校验失败：$($row.key)。" }
+        $entry = @($receipt.entries | Where-Object { $_.layer -ceq $row.layer -and $_.pkg -ceq $row.pkg })
+        if ($entry.Count -eq 0) {
+            $e = [pscustomobject]@{layer=$row.layer;pkg=$row.pkg;pre=$row.pre;post=$row.post;backupMd5=$item.originalMd5;backupSha256=$item.originalSha256;state='pending'}
+            $receipt.entries = @($receipt.entries) + @($e)
+        } else { $e = $entry[0]; $e.state = 'pending' }
+        Save-Receipt $ctx $receipt
+        Copy-Item -LiteralPath $src -Destination $item.dst -Force
+        if ((Get-Hash $item.dst) -cne $row.post) { throw "写入校验失败：$($row.key)。已保留收据和备份，停止后续写入。" }
+        $e.state = 'written'
+        Save-Receipt $ctx $receipt
+        Write-Step "已写入 $($row.key)"
     }
-  }
-
-  if ($thisPkgOk) { $okPkg++ } else { $badPkg += $r.pkg }
-}
-
-# 台账：与已有台账合并
-$bmfPath = Join-Path $bak 'backup_manifest.tsv'
-$oldLines = @()
-if (Test-Path -LiteralPath $bmfPath) {
-  $oldLines = @([System.IO.File]::ReadAllLines($bmfPath, [System.Text.Encoding]::UTF8) |
-                Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
-}
-$allLines = @($oldLines + $bakLines) | Select-Object -Unique
-[System.IO.File]::WriteAllLines($bmfPath, $allLines, (New-Object System.Text.UTF8Encoding($false)))
-[System.IO.File]::WriteAllText((Join-Path $bak 'game_dir.txt'), $game, (New-Object System.Text.UTF8Encoding($false)))
-try { [System.IO.File]::WriteAllText((Join-Path $root '_last_game_dir.txt'), $game, (New-Object System.Text.UTF8Encoding($false))) } catch {}
-
-Write-Title '安装完成'
-
-# 明确报告成功率
-$total = $rows.Count
-if ($badPkg.Count -eq 0) {
-  Write-Ok "全部 $total 个包写入成功"
-} else {
-  Write-Warn2 "成功 $okPkg / $total 个包，失败 $($badPkg.Count) 个"
-  foreach ($b in ($badPkg | Select-Object -First 10)) { Write-Host "        失败: $b" -ForegroundColor Red }
-  if ($badPkg.Count -gt 10) { Write-Host "        … 还有 $($badPkg.Count - 10) 个" -ForegroundColor Red }
-}
-
-if ($extraFixed -gt 0) {
-  Write-Ok "顺带修复了 $extraFixed 个被旧版模组占用的文件（另一层）"
-}
-if ($skip -gt 0) { Write-Warn2 "跳过 $skip 个（安装包缺数据）" }
-
-Write-Host ''
-Write-Host "  备份位置：$bak" -ForegroundColor Cyan
-Write-Host '  下次更新游戏前，先双击 uninstall.bat 退回国服原版，再更新。' -ForegroundColor Cyan
-if ($badPkg.Count -gt 0) {
-  Write-Host ''
-  Write-Host '  有包写入失败，可以试试：' -ForegroundColor Yellow
-  Write-Host '    1. 关掉杀毒软件实时防护后重跑 install.bat' -ForegroundColor Yellow
-  Write-Host '    2. 右键 install.bat → 以管理员身份运行' -ForegroundColor Yellow
-  Write-Host '    3. 还是不行就完全退出游戏再试一次' -ForegroundColor Yellow
-}
-Write-Host ''
+    Write-Ok "安装完成；只写清单内目标，备份位于 $($ctx.state)"
+    Write-Host '  更新游戏前，请双击本包 uninstall.bat。若已热更，卸载会拒绝覆盖未知文件。' -ForegroundColor Cyan
+    exit 0
+} catch {
+    Write-Err2 $_.Exception.Message
+    Write-Host '  操作未全部完成。不要删除备份；请按具体错误核对目录、版本或重新解压。' -ForegroundColor Yellow
+    exit 1
+} finally { if ($null -ne $lock) { $lock.Dispose() } }

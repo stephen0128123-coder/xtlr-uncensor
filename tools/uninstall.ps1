@@ -1,117 +1,51 @@
-﻿# ===== 星塔旅人 模组 · 一键恢复国服原版 =====
-# 无条件把备份里的文件还原回去。
-# 使用前提（写进 README 了）：更新游戏之前先跑这个，再更新。
-param([string]$BackupDir = '', [string]$GameDirOverride = '')
-
+﻿# 星塔旅人 · 仅按本包收据恢复本包实际写入的目标
+param([string]$ManifestOverride = '', [string]$GameDirOverride = '')
 . (Join-Path $PSScriptRoot 'common.ps1')
-
-try { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8 } catch {}
-
-$root = Split-Path -Parent $PSScriptRoot
-
-Write-Title '星塔旅人（国服）· 退回国服原版'
-
-if (-not (Assert-GameNotRunning)) { exit 1 }
-
-# 1) 定位游戏目录
-$game = $null
-$cands = @()
-if ($GameDirOverride) { $cands += $GameDirOverride }
-if (Test-Path -LiteralPath (Join-Path $root '_last_game_dir.txt')) {
-  $g0 = (Get-Content -LiteralPath (Join-Path $root '_last_game_dir.txt') -Raw).Trim()
-  if (Test-GameDir $g0) { $cands += $g0 }
-}
-$g = Find-GameDir
-if ($g) { $cands += $g }
-
-$bakDirs = @()
-if ($BackupDir) {
-  $bakDirs += $BackupDir
-} else {
-  foreach ($c in ($cands | Select-Object -Unique)) {
-    $bs = Get-ChildItem -LiteralPath $c -Directory -Filter '_uncensor_backup_*' -ErrorAction SilentlyContinue |
-          Sort-Object Name
-    if ($bs) {
-      foreach ($b in $bs) { if ($bakDirs -notcontains $b.FullName) { $bakDirs += $b.FullName } }
-      if (-not $game) { $game = $c }
+try { [Console]::OutputEncoding = [Text.Encoding]::UTF8 } catch {}
+function Get-RestorePlan($ctx, $receipt) {
+    $plan = @()
+    foreach ($e in @($receipt.entries)) {
+        # restored 不再拥有目标；无收据目标从未由此包接管。
+        if ($e.state -ceq 'restored') { continue }
+        $dst = Get-Target $ctx $e
+        $cur = Get-Hash $dst
+        if ($cur -cne $e.backupMd5 -and $cur -cne $e.post) { throw "目标已被热更或其他操作改变：$($e.layer)/$($e.pkg)；未还原任何资源。" }
+        if ($e.state -ceq 'pending' -and $cur -ceq $e.post) { throw "中断写入未确认：$($e.layer)/$($e.pkg)，不自动恢复，请保留备份人工核对。" }
+        $plan += [pscustomobject]@{entry=$e;dst=$dst;backup=(Get-Backup $ctx $e);needsCopy=($cur -ceq $e.post -and $cur -cne $e.backupMd5)}
     }
-  }
-  if (-not $game) {
-    foreach ($c in ($cands | Select-Object -Unique)) { if (Test-GameDir $c) { $game = $c; break } }
-  }
+    return $plan
 }
-
-if ($bakDirs.Count -eq 0) {
-  # 没有备份：退而找游戏目录，提示手动处理
-  if (-not $game) { $game = Get-GameDirInteractive }
-  Write-Err2 '没找到备份目录（_uncensor_backup_*），没法自动还原。'
-  Write-Host ''
-  Write-Host '  这种情况请用启动器修复：' -ForegroundColor Yellow
-  Write-Host '    打开星塔旅人启动器 → 点「完整修复」 → 等它跑完' -ForegroundColor Yellow
-  Write-Host ''
-  exit 1
-}
-
-if (-not $game) { $game = Get-GameDirInteractive }
-if (-not (Test-GameDir $game)) { Write-Err2 '未能确定游戏目录，已中止。'; exit 1 }
-
-Write-Step "游戏目录: $game"
-Write-Step "备份目录（$($bakDirs.Count) 个）:"
-foreach ($b in $bakDirs) { Write-Host "    $b" -ForegroundColor DarkGray }
-
-$IR = Join-Path $game 'xtlr_Data\StreamingAssets\InstallResource'
-$PS = Join-Path $game 'Persistent_Store\AssetBundles'
-
-# 2) 合并所有备份目录的台账（去重）
-$seen  = @{}
-$items = @()
-foreach ($b in $bakDirs) {
-  $bmf = Join-Path $b 'backup_manifest.tsv'
-  if (-not (Test-Path -LiteralPath $bmf)) { continue }
-  foreach ($ln in [System.IO.File]::ReadAllLines($bmf, [System.Text.Encoding]::UTF8)) {
-    if ([string]::IsNullOrWhiteSpace($ln)) { continue }
-    $f = $ln -split "`t"
-    if ($f.Count -lt 2) { continue }
-    $key = $f[0] + '/' + $f[1]
-    if (-not $seen.ContainsKey($key)) { $seen[$key] = $true; $items += , @($f[0], $f[1]) }
-  }
-}
-if ($items.Count -eq 0) {
-  Write-Err2 '备份台账是空的，没法还原。'
-  Write-Host ''
-  Write-Host '  请用启动器的「完整修复」。' -ForegroundColor Yellow
-  Write-Host ''
-  exit 1
-}
-
-# 3) 无条件还原
-$done = 0; $fail = 0
-foreach ($it in $items) {
-  $L = $it[0]; $pkg = $it[1]
-  $dir = if ($L -eq 'IR') { $IR } else { $PS }
-  $dst = Join-Path $dir $pkg
-
-  $src = $null
-  foreach ($b in $bakDirs) {                       # 最早优先
-    $cand = Join-Path (Join-Path $b $L) $pkg
-    if (Test-Path -LiteralPath $cand) { $src = $cand; break }
-  }
-  if (-not $src) { Write-Warn2 "缺备份文件 $L/$pkg"; $fail++; continue }
-
-  try {
-    Copy-Item -LiteralPath $src -Destination $dst -Force
-    $done++
-    Write-Host "  已还原 $L/$pkg" -ForegroundColor DarkGray
-  } catch {
-    Write-Err2 "$L/$pkg 还原失败"
-    $fail++
-  }
-}
-
-Write-Title '还原完成'
-Write-Ok "已还原 $done 个文件"
-if ($fail -gt 0) { Write-Warn2 "$fail 个没能还原" }
-Write-Host ''
-Write-Host '  游戏已退回国服原版。' -ForegroundColor Cyan
-Write-Host '  接下来可以放心更新游戏，或者重新装小开关。' -ForegroundColor Cyan
-Write-Host ''
+$lock = $null
+try {
+    Write-Title '星塔旅人（国服）· 小开关卸载'
+    $root = Split-Path -Parent $PSScriptRoot
+    $package = Read-Package $root $ManifestOverride
+    $ctx = Get-Context $package $GameDirOverride
+    $receipt = Read-Receipt $ctx $package
+    $plan = @(Get-RestorePlan $ctx $receipt)
+    if ($plan.Count -eq 0) { Write-Ok '本包没有需要恢复的安装记录，未写入资源。'; exit 0 }
+    $lock = Open-StateLock $ctx
+    $receipt = Read-Receipt $ctx $package
+    $plan = @(Get-RestorePlan $ctx $receipt)
+    # 所有备份、收据和当前目标都已校验通过，才进入写入循环。
+    foreach ($item in $plan) {
+        $e = $item.entry
+        if ((Get-Hash $item.backup) -cne $e.backupMd5 -or (Get-Hash $item.backup 'SHA256') -cne $e.backupSha256) { throw '恢复前备份发生变化，停止后续写入。' }
+        $cur = Get-Hash $item.dst
+        if ($cur -cne $e.backupMd5 -and $cur -cne $e.post) { throw '恢复前目标发生变化，停止后续写入。' }
+        if ($cur -ceq $e.post -and $cur -cne $e.backupMd5) {
+            if ($e.state -cne 'written') { throw '此目标没有已确认写入收据，不恢复。' }
+            Copy-Item -LiteralPath $item.backup -Destination $item.dst -Force
+            if ((Get-Hash $item.dst) -cne $e.backupMd5 -or (Get-Hash $item.dst 'SHA256') -cne $e.backupSha256) { throw '恢复后哈希校验失败，停止后续写入。' }
+            Write-Step "已还原 $($e.layer)/$($e.pkg)"
+        }
+        $e.state = 'restored'
+        Save-Receipt $ctx $receipt
+    }
+    Write-Ok '本包写入内容已还原；备份和收据保留，重复卸载不会改动其他文件。'
+    exit 0
+} catch {
+    Write-Err2 $_.Exception.Message
+    Write-Host '  未能全部还原。请保留备份，按错误核对；不要用旧版本备份覆盖新游戏。' -ForegroundColor Yellow
+    exit 1
+} finally { if ($null -ne $lock) { $lock.Dispose() } }
