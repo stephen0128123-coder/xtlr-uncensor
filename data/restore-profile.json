@@ -2,27 +2,27 @@
   "schema": 1,
   "product": "xingta-switch",
   "region": "cn",
-  "gameVersion": "2.1.0",
-  "manifestSha256": "513f26f11fd6bdf52c5a30f947fda4850f1ab69bcfa7504bdafa0c6043952d9a",
-  "ledgerSha256": "2289b2ea87629f12358fe7438db335e0af12b44dc83e84500f54700248cae032",
+  "gameVersion": "2.1.1",
+  "manifestSha256": "f050c5b46529656b3dbf4c6db51c594d802b0f21d8639122dc5f93f797dbc188",
+  "ledgerSha256": "272b4cdd6647a6a3574606bf43262ed213af21744b2b4e14e33928199f33a978",
   "baselineSha256": "95415e630fbe384663c2591acba3669da0fa728dd49f5472fe187e71b62566de",
   "authorities": {
     "IR": {
       "relativePath": "xtlr_Data/StreamingAssets/InstallResource/install_resource_manifest.mani",
       "sourceSha256": "95415e630fbe384663c2591acba3669da0fa728dd49f5472fe187e71b62566de",
       "sourceVersion": {
-        "GAME_VER": "2.0.0",
         "RES_VER": "0",
-        "CLIENT_VER": "2.0.0"
+        "CLIENT_VER": "2.0.0",
+        "GAME_VER": "2.0.0"
       }
     },
     "PS": {
       "relativePath": "Persistent_Store/ss_win.mani",
-      "sourceSha256": "5d3381da2108379e2ec78bdfc9bfde4ed8e1f559a8141681d5cfa8c4704aba24",
+      "sourceSha256": "ef5f72065b6e2561ac4b2b4ebd3bc62d3fe704a4055d7ed42e961c648f6a634d",
       "sourceVersion": {
-        "GAME_VER": "2.1.0",
-        "RES_VER": "2611131417",
-        "CLIENT_VER": "2.0.0"
+        "RES_VER": "2611262000",
+        "CLIENT_VER": "2.0.0",
+        "GAME_VER": "2.1.1"
       }
     }
   },
@@ -1552,15 +1552,15 @@
       "name": "icon-0.unity3d",
       "official": {
         "exists": true,
-        "md5": "ab27f862cb58551c2cfa4eb7fde289d7",
-        "sha256": "344a130a6e1898b8792d9fd6063c32f6e4b4452c8fe6253993fcf34d73dfb3be",
-        "size": 68725681
+        "md5": "af027bc8c9219b941adb1c93cfb6d5be",
+        "sha256": "1476223081d924349b5b70adb294e62e5c511f7ff6f474301ba679dfadcc05ad",
+        "size": 68825399
       },
       "post": {
         "file": "icon-0.unity3d",
-        "md5": "3e26487b74bfda78040ad8dc6fd252a7",
-        "sha256": "a2f904a98ef98e186cb6b677064be0ee43a2acaafc98f243fd71c149f172ecda",
-        "size": 68942222
+        "md5": "083e075d590939b68e679c5574ddeaa0",
+        "sha256": "3667008b949bc8bed9e5b3d0e80e6e26e34434286de4727c4309e23d373aad0f",
+        "size": 69042003
       }
     },
     {
@@ -1584,15 +1584,15 @@
       "name": "icon-2.unity3d",
       "official": {
         "exists": true,
-        "md5": "93277041b1554d31403f409a886e8fe8",
-        "sha256": "a0ddacf95edd0e6bfffbbb2874353767ad250978bc51f9c315ef09d3c736f96c",
-        "size": 37947758
+        "md5": "2a36eee8cb27c3ce4c7e78625a162859",
+        "sha256": "93716d5e4243689823a1e8791a8e1864738bbc0b1a256aed3c075a94c912b87d",
+        "size": 37982798
       },
       "post": {
         "file": "icon-2.unity3d",
-        "md5": "fca2549ba06916e9be53a013bf9628d6",
-        "sha256": "ca39114af43458957d223b18f68768a1ebda295bfaaca2c910b6162044459c0a",
-        "size": 38034139
+        "md5": "02d3478333665ebf87f8adc9365880f4",
+        "sha256": "001e62f5f316060b3520b18e15b450ee94cc8cb22c6a071aba6d32540ba99b47",
+        "size": 38069106
       }
     },
     {
@@ -1600,15 +1600,15 @@
       "name": "icon-3.unity3d",
       "official": {
         "exists": true,
-        "md5": "e40ba990e504764903d1d238af50bb23",
-        "sha256": "406f86c861ccf2871ee1027e4e390db01d23c25b0994176c7468c7588cf2c993",
-        "size": 31622870
+        "md5": "2168ad04d641a248578012e2a8b35173",
+        "sha256": "727a908831d8e91f8f1f209688fa1537b5ef55a2de7ba2432c697c19e75e427c",
+        "size": 31611367
       },
       "post": {
         "file": "icon-3.unity3d",
-        "md5": "345f08725074353e7bfa4bc24cfb516d",
-        "sha256": "c95ed1ca9e5057260fc7b3ff5f9868bce912e0f8b01b774b65a7eb2d84c07ad1",
-        "size": 31692627
+        "md5": "10018d7377592353f7f48fc4339b257a",
+        "sha256": "f31d9cf334c03caa735cb67acacbb430211d4ef6dc302c66af3f470be21cf232",
+        "size": 31681130
       }
     },
     {
@@ -1616,15 +1616,15 @@
       "name": "icon-4.unity3d",
       "official": {
         "exists": true,
-        "md5": "a8e84403b708fa5fa0b1c249a9a32452",
-        "sha256": "54708f7b318737fe6871516d0a8b9c7fd0d1e376e814bb12bd332131726f71fc",
-        "size": 43802284
+        "md5": "be7ef1df099dd232b13247723fd4e6fb",
+        "sha256": "3448d06862cad83d208d0d602fbb33501ee2b64960acdb79f0aa0f850f713348",
+        "size": 43791082
       },
       "post": {
         "file": "icon-4.unity3d",
-        "md5": "2462fc305e2be15eb4d6b2dfdb0f006b",
-        "sha256": "16697a13543c10aae156291b97277359c0692f9d0c57dbafe07c27e7bf2bb683",
-        "size": 43888319
+        "md5": "eea321cc8521385bed6ca24a2713d3f2",
+        "sha256": "ed5ae5a4b9f7190f4f4edc25197f608ed192b63f0d50c8d03a7c2e8a4927b18a",
+        "size": 43877211
       }
     },
     {
@@ -1632,15 +1632,15 @@
       "name": "icon-5.unity3d",
       "official": {
         "exists": true,
-        "md5": "76ecf5e76961c023fe424bf1e12c12ba",
-        "sha256": "ac71a761c540e0c2424e42f2a08b98db99923af5bf336857ff6dfa0cb9267a28",
-        "size": 38380551
+        "md5": "a25d02a53acd167bfb0677dac3df00e6",
+        "sha256": "9c46084195b4077cf4e17e29b4c666a330a1d23aca93f333482314ef124f8590",
+        "size": 38385108
       },
       "post": {
         "file": "icon-5.unity3d",
-        "md5": "20265f90798715a3b1c14152036ebcbb",
-        "sha256": "bd84917f6de06f5ae46baa5a007ca50571a7201282c1a6567ff2fab40545368d",
-        "size": 38466415
+        "md5": "b0465cb93fac10f6f6a13efe1a07e2c2",
+        "sha256": "6dad49b96ae8f974450b9b0f165d1f6403b11318077a56973bf97ae61c5517c2",
+        "size": 38470949
       }
     },
     {
@@ -1648,15 +1648,15 @@
       "name": "icon-6.unity3d",
       "official": {
         "exists": true,
-        "md5": "fc56587eabf324036bcaf8425633ac50",
-        "sha256": "58e6c8d98b4a61412416776a20153b3e484619cef25d2f96e7c5997a3b8aece1",
-        "size": 34664246
+        "md5": "edf8dd99589b65f947339a43c4e51606",
+        "sha256": "56d03c7ca060afef6b89c28bf6373a9b6914ad414985a02d3aef28c53c96afc0",
+        "size": 34766106
       },
       "post": {
         "file": "icon-6.unity3d",
-        "md5": "b291b067be5a96c65c8719785c385e63",
-        "sha256": "aa173b19c19b2a90ad942450d6aeca6296eb510a9d2b51dca192ac9523e6a887",
-        "size": 34743055
+        "md5": "ca12b493a3eaffa55d42650f72d5305d",
+        "sha256": "0f9918ba55a8c7951eacaa00a4560fd3d73df61931869622d60e24e6b8f8574f",
+        "size": 34845350
       }
     },
     {
@@ -1664,15 +1664,15 @@
       "name": "icon-7.unity3d",
       "official": {
         "exists": true,
-        "md5": "71aee8ada767fe3b2b8bafb5a1f6c1d2",
-        "sha256": "b024101dc6a4ce34c7a84315bb05fe8f9856b931d8a802478e58cdba963fe413",
-        "size": 55670118
+        "md5": "34f4c2b629af3d8d778aa4c96d75a068",
+        "sha256": "aa3e881913287fc6a797ee2242d6920a05ea0e3042f1ed44b5ca273f988efd22",
+        "size": 55717375
       },
       "post": {
         "file": "icon-7.unity3d",
-        "md5": "d3aa7744dde2d9be2d669f6995411877",
-        "sha256": "0c9f6c070476b8f2a529ed17dad2d4474bed08f720810512a35db454d6da410a",
-        "size": 55800257
+        "md5": "7753422b94d6d634e9491d1b40f8ae57",
+        "sha256": "19c3863864fd3a4617a17c16682bcef160190f458fff5ebb9d1018e34a70791c",
+        "size": 55847250
       }
     },
     {
@@ -1680,15 +1680,15 @@
       "name": "icon-8.unity3d",
       "official": {
         "exists": true,
-        "md5": "9e7f79885c78a4ee936b28b222033ae5",
-        "sha256": "67ad192d17daa6329e6ea9ec46995eeb496392edcd8039517d47a39bbf68eba9",
-        "size": 49150069
+        "md5": "72f7d96769e05f7ec07dab185b5bd1d9",
+        "sha256": "593ea1ede9854f7cfa3c3a85727603fb52ea042eba9e613c07fa3b7cd519a23f",
+        "size": 45575866
       },
       "post": {
         "file": "icon-8.unity3d",
-        "md5": "1e384063e923aaa485798ce00033cfa3",
-        "sha256": "a8970c5c0a67e80abbb453ef9a9cf7b663ff11adf59875bbe822862ab1f40835",
-        "size": 49269755
+        "md5": "ef2d7a7e46af2f08dcef87f330140265",
+        "sha256": "3fd6e1f94f9703d3abebadb75fc88ecf1d410dda00d0fd8d1493cf776a6d5cae",
+        "size": 45681455
       }
     },
     {
@@ -1696,15 +1696,15 @@
       "name": "icon-9.unity3d",
       "official": {
         "exists": true,
-        "md5": "952971a3f31bdb9f2fd7ca467e7740f5",
-        "sha256": "720588b066220ae7f94b0bb91a079227d35a1a23978817172bd5067d1b6eb8ec",
-        "size": 43307240
+        "md5": "7948c1a9dfe99a6bea5509e16b324849",
+        "sha256": "e070e6e3fb0ecd0d3396b228da5a1c008af12c07edc1215586bef17305ad023e",
+        "size": 43445375
       },
       "post": {
         "file": "icon-9.unity3d",
-        "md5": "1c5a27f689531cfd1097fabdfa40747b",
-        "sha256": "ae0b0f0f21cc41b0ae5dba6fb3b5b74102729d2de958293d88c4ec783e848349",
-        "size": 43405506
+        "md5": "ded7aa5cc06d2ce4cb1acdd76f37d6f8",
+        "sha256": "f091e5fe35ad35894f4443f1349bcda61e851267012caf3ef8de15d3ab2ce34b",
+        "size": 43543624
       }
     },
     {
@@ -1712,15 +1712,15 @@
       "name": "icon-a.unity3d",
       "official": {
         "exists": true,
-        "md5": "6afd81f615c350d6d6d6fb9e7a15908f",
-        "sha256": "199e2fe3b47d640c6c73556684bb5a1e49085cff87f1704a2944b3c581b78f8f",
-        "size": 48058407
+        "md5": "ee1ec3e4213e1b68cff0c478e0e022a9",
+        "sha256": "d8ed0a459e255aa5a9d8a64dec599fb8a6e0e7e4f3fb2cd898f44816f32f5278",
+        "size": 48083003
       },
       "post": {
         "file": "icon-a.unity3d",
-        "md5": "6928e5b973362c3b2ddb785ec1a1eac6",
-        "sha256": "e6e0e39f075feff7563d7221fdd5b83cfbefb5451772c00fd155875cb2d58e87",
-        "size": 48199937
+        "md5": "2de6d11155fdf8ce9c379fd4db73f613",
+        "sha256": "53e4924859a78598527102c27bbb954ee327b329d36195c13d77b37b82e08e9c",
+        "size": 48224283
       }
     },
     {
@@ -1744,15 +1744,15 @@
       "name": "icon-c.unity3d",
       "official": {
         "exists": true,
-        "md5": "ddb78f640dc26af825bd01af0456d160",
-        "sha256": "454c2b0d794624e430a8cdb37819cb1552304aa049606b5b03bd398e07549d08",
-        "size": 43784432
+        "md5": "ce6aa12aaff993ae4faff66696cb77e4",
+        "sha256": "a9eac1ffb9b5ccb799165d5c2ad7b1595617e137162687c33b87ebeec7a3f53d",
+        "size": 43884513
       },
       "post": {
         "file": "icon-c.unity3d",
-        "md5": "fd4276acf368035185c187f38c2325d9",
-        "sha256": "0865eb322d10d5dc704a5497db3f247a4c323bd6a565ff0c91970955b3601b4b",
-        "size": 43918431
+        "md5": "0757256dd01678af1fbadad4f1873487",
+        "sha256": "40d44f6c4e732945bbfa1e69fa8f6e1d678ea0b576525c8892034a6162c47f1d",
+        "size": 44019189
       }
     },
     {
@@ -1776,15 +1776,15 @@
       "name": "icon-e.unity3d",
       "official": {
         "exists": true,
-        "md5": "f097a74dc1aa57ce6f2388205c088f13",
-        "sha256": "f5b07dd165a87a3d48687699f52a48fe92ed67fd787d2684fc7dea95151140b8",
-        "size": 44812039
+        "md5": "56a47d6a439785181a2bb5c54ebffc18",
+        "sha256": "0353929563d544175c87fc37cdd43f3708ca31cda2a0bd44fabb116792fd0bba",
+        "size": 44812513
       },
       "post": {
         "file": "icon-e.unity3d",
-        "md5": "472cc1701dae5777ba50bf333363b1b8",
-        "sha256": "6575e7bb4b22f17fb477ec858a1b36665cc53067547bf2f8fe05f0bf598355d6",
-        "size": 44908153
+        "md5": "1b4da7de88fdb993115fb9f5dd49b52e",
+        "sha256": "02b6d3729e77e44d07f3d2e27f5c0de9532ba5da8591d067e604d8f77971425c",
+        "size": 44908581
       }
     },
     {
@@ -1792,15 +1792,15 @@
       "name": "icon-f.unity3d",
       "official": {
         "exists": true,
-        "md5": "eafdcaf143814d3836b6b416ab81fb3f",
-        "sha256": "fce01d9da36db5a8e445e945363375cf59bd467fe546421188a8391ffe8008bc",
-        "size": 34872986
+        "md5": "f32424dfb658470e9e78a60d8bdf6391",
+        "sha256": "762f6bac5fa22b22618038dbaea5bb1928fafb02d7a14f5bb7e2c1d774b06274",
+        "size": 34926903
       },
       "post": {
         "file": "icon-f.unity3d",
-        "md5": "216533d6a89b324c8eb4ff327dfc2c18",
-        "sha256": "fbe5c178218c6d42e484967c81b83d174fde5c6bec83b00dcb42e8c3c36bdd06",
-        "size": 34938676
+        "md5": "dbff52bd5d2cd9a70aa8a46ad6d696e8",
+        "sha256": "18df52b9cbd5d879de84cb81d030ae997c79a57616c8089779e50d9855760cd7",
+        "size": 34992128
       }
     },
     {
